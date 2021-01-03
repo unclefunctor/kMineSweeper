@@ -29,14 +29,11 @@ const val TILE_Y = H / TILE_SIZE
 
 // Relative offsets of a cell's 8 neighbors
 class Pt(val x: Int, val y: Int)
-
 val NEIGHBORS = listOf(Pt(0, -1), Pt(1, -1), Pt(1, 0), Pt(1, 1), Pt(0, 1), Pt(-1, 1), Pt(-1, 0), Pt(-1, -1))
 
 // Central object of the game
 class Tile(val x: Int, val y: Int, val hasBomb: Boolean) : StackPane() {
-	var isOpen = false      // Set when the tile is left clicked
-	var isFlagged = false   // Toggled when the tile is right clicked
-	var badNeighbors = 0    // The number of neighboring bombs
+	// FX nodes
 	val border = Rectangle(TILE_SIZE - 2.0, TILE_SIZE - 2.0)
 		.apply {
 			stroke = Color.LIGHTGRAY
@@ -46,24 +43,42 @@ class Tile(val x: Int, val y: Int, val hasBomb: Boolean) : StackPane() {
 			isVisible = false
 			font = Font.font(18.0)
 		}
-	val neighbors: List<Tile>
+
+	// Game logic properties
+	var isOpen = false         // Set when the tile is left clicked
+	var badNeighbors = 0       // The number of neighboring bombs
+	val neighbors: List<Tile>  // Constructs a list of valid neighboring tiles
 		get() = NEIGHBORS
 			.filter { x + it.x in 0 until TILE_X && y + it.y in 0 until TILE_Y } // Discard out of bounds neighbors
 			.map { grid[x + it.x][y + it.y] }
+	var isFlagged = false      // Toggled when the tile is right clicked
+		set(value) {
+			if (isOpen || value == isFlagged) return
+			field = value
+
+			if (value) {
+				label.text = "F"
+				label.isVisible = true
+				border.fill = null
+			} else {
+				label.isVisible = false
+				border.fill = Color.BLACK
+			}
+		}
 
 	init {
-		if (hasBomb) totalBombs++
+		if (hasBomb) bombs++
 		children.addAll(border, label)
 		translateX = (x * TILE_SIZE).toDouble()
 		translateY = (y * TILE_SIZE).toDouble()
 		setOnMouseClicked {
 			if (it.button == MouseButton.PRIMARY) open()
-			if (it.button == MouseButton.SECONDARY) toggleFlag()
+			if (it.button == MouseButton.SECONDARY) isFlagged = !isFlagged
 			updateScore()
 		}
 	}
 
-	fun open() {
+	private fun open() {
 		if (isOpen) return
 
 		if (hasBomb) { // Game over, show all the bombs
@@ -77,36 +92,29 @@ class Tile(val x: Int, val y: Int, val hasBomb: Boolean) : StackPane() {
 						y.label.style = "-fx-font-weight: bold;"
 						y.label.isVisible = true
 						y.border.fill = null
-					} else if (y.isFlagged) {
-						toggleFlag() // Clear the false flag
+					} else {
+						if (y.isFlagged) {   // False flag LoL
+							y.label.fill = Color.RED
+						} else {             // Show the tile
+							y.show()
+						}
 					}
 				}
 			}
-			gameOver("Boom! You missed ${totalBombs - score} bombs")
+			gameOver("Boom! You missed ${bombs - score} bombs")
 		}
 
 		isOpen = true
+		show()
+		if (badNeighbors == 0) neighbors
+			.filter { !it.hasBomb }
+			.forEach { it.open() }  // Recursively call to open all surrounding tiles
+	}
+
+	private fun show() {
 		label.text = if (badNeighbors > 0) badNeighbors.toString() else ""
 		label.isVisible = true
 		border.fill = null
-		if (badNeighbors == 0) neighbors
-			.filter { !it.hasBomb }
-			.forEach { it.open() }
-	}
-
-	fun toggleFlag() {
-		if (isOpen) return
-
-		isFlagged = !isFlagged
-
-		if (isFlagged) {
-			label.text = "F"
-			label.isVisible = true
-			border.fill = null
-		} else {
-			label.isVisible = false
-			border.fill = Color.BLACK
-		}
 	}
 }
 
@@ -122,7 +130,7 @@ fun updateScore() {
 			}
 		}
 	}
-	if (!tbd && score == totalBombs) gameOver("You Won!")
+	if (!tbd && score == bombs) gameOver("You Won!")
 }
 
 fun gameOver(message: String) {
@@ -138,12 +146,12 @@ fun gameOver(message: String) {
 
 var grid = Array(TILE_X) { x -> Array(TILE_Y) { y -> Tile(x, y, Math.random() < 0.07) } }
 var score = 0
-var totalBombs = 0
+var bombs = 0
 
 class Main : Application() {
 
 	override fun start(primaryStage: Stage) {
-		println("You need to flag $totalBombs bombs.  Good luck!")
+		println("You need to flag $bombs bombs.  Good luck!")
 		primaryStage
 			.apply {
 				title = "kMineSweeper"
