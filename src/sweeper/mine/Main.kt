@@ -67,7 +67,6 @@ class Tile(val x: Int, val y: Int, val hasBomb: Boolean) : StackPane() {
 		}
 
 	init {
-		if (hasBomb) bombs++
 		children.addAll(border, label)
 		translateX = (x * TILE_SIZE).toDouble()
 		translateY = (y * TILE_SIZE).toDouble()
@@ -149,27 +148,27 @@ var score = 0
 var bombs = 0
 
 class Main : Application() {
-
 	override fun start(primaryStage: Stage) {
-		println("You need to flag $bombs bombs.  Good luck!")
 		primaryStage
 			.apply {
 				title = "kMineSweeper"
 				scene = Scene(createContent())
 			}
 			.show()
+		println("You need to flag $bombs bombs.  Good luck!")
 	}
 
 	private fun createContent(): Parent {
 		val root = Pane().apply {
-			prefWidth = 800.0
-			prefHeight = 600.0
+			prefWidth = W.toDouble()
+			prefHeight = H.toDouble()
 		}
 
 		for (x in 0 until TILE_X)
 			for (y in 0 until TILE_Y)
 				root.children.add(grid[x][y]
 					.apply {
+						if (hasBomb) bombs++
 						badNeighbors = neighbors.fold(0) { sum, n -> sum + if (n.hasBomb) 1 else 0 }
 					})
 
